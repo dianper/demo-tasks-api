@@ -1,0 +1,70 @@
+name: CI
+
+# Runs on every PR targeting main, and on pushes to main.
+# This is the gate that must pass before any PR can be merged.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & Test (.NET 10)
+    runs-on: ubuntu-latest
+
+    # Testcontainers needs Docker — ubuntu-latest has it by default
+    services: {}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build (no warnings)
+        run: dotnet build --no-restore --configuration Release -warnaserror
+
+      - name: Run unit tests
+        run: |
+          dotnet test tests/TasksApi.UnitTests \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=unit-results.trx" \
+            --results-directory ./test-results
+
+      - name: Run integration tests
+        run: |
+          dotnet test tests/TasksApi.IntegrationTests \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=integration-results.trx" \
+            --results-directory ./test-results
+        env:
+          # Testcontainers will spin up its own PostgreSQL container.
+          # No external DB needed here.
+          DOTNET_ENVIRONMENT: Test
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results
+          path: ./test-results/*.trx
+          reporter: dotnet-trx
+
+      - name: Check coverage (optional gate)
+        run: |
+          dotnet test \
+            --no-build \
+            --configuration Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage
+        continue-on-error: true  # change to false to enforce coverage gate

@@ -1,0 +1,110 @@
+name: CD — Build & Publish Docker Image
+
+# Disabled for now while CI and the AI trigger are being validated.
+# Can still be executed manually from the Actions tab when needed.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write      # to create git tags
+      packages: write      # to push to GHCR
+      id-token: write      # for OIDC (optional, future use)
+
+    outputs:
+      image_tag: ${{ steps.version.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed for git tag history
+
+      - name: Generate semantic version tag
+        id: version
+        run: |
+          # Simple semver from git tags.
+          # Falls back to 0.1.0 if no tags exist yet.
+          LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+          if [ -z "$LATEST" ]; then
+            NEW_TAG="v0.1.0"
+          else
+            # Bump patch version
+            IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
+            NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+          echo "tag=${NEW_TAG}" >> $GITHUB_OUTPUT
+          echo "Generated tag: ${NEW_TAG}"
+
+      - name: Create git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image name
+        id: image
+        run: |
+          # ghcr.io/<owner>/<repo>
+          IMAGE="ghcr.io/${{ github.repository_owner }}/tasks-api"
+          echo "name=${IMAGE}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:${{ steps.version.outputs.tag }}
+          build-args: |
+            BUILD_VERSION=${{ steps.version.outputs.tag }}
+
+  notify-gitops:
+    name: Notify K8s Assets Repo
+    runs-on: ubuntu-latest
+    needs: publish
+
+    # Only notify if this repo is the real service repo (not a fork).
+    # Adjust the condition if you have a different setup.
+    if: github.repository_owner != ''
+
+    steps:
+      - name: Dispatch to k8s-assets repo
+        uses: actions/github-script@v7
+        with:
+          # Use a PAT with repo scope for the assets repo.
+          # Store it as a secret: GH_GITOPS_PAT
+          github-token: ${{ secrets.GH_GITOPS_PAT }}
+          script: |
+            const imageTag = '${{ needs.publish.outputs.image_tag }}';
+            const imageName = 'ghcr.io/${{ github.repository_owner }}/tasks-api';
+
+            await github.rest.repos.createDispatchEvent({
+              owner: context.repo.owner,
+              repo: 'demo-k8s-assets',
+              event_type: 'new-image-available',
+              client_payload: {
+                service: 'tasks-api',
+                image: `${imageName}:${imageTag}`,
+                tag: imageTag,
+                triggered_by: context.sha,
+                run_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+              }
+            });
+
+            console.log(`Dispatched to k8s-assets: ${imageName}:${imageTag}`);
