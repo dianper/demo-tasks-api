@@ -1,11 +1,11 @@
-name: AI Agent Trigger
+name: 🤖 AI Agent Trigger
 
 # Fires when a label is added to an issue.
-# If the label is "ai", assigns the Copilot Coding Agent to the issue.
+# If the label is "ai", assigns the Copilot Coding Agent via REST API.
 #
-# NOTE: addAssignees('copilot') requires a PAT from a user with
-# an active Copilot Pro+ license — GITHUB_TOKEN does not have
-# permission to assign AI agents.
+# IMPORTANT — the correct assignee handle is "copilot-swe-agent[bot]", NOT "copilot".
+# Requires a PAT (GH_AGENT_PAT) with read/write on:
+#   actions, contents, issues, pull requests
 
 on:
   issues:
@@ -16,7 +16,6 @@ jobs:
     name: Assign Copilot Agent
     runs-on: ubuntu-latest
 
-    # Only run when the label added is exactly "ai"
     if: github.event.label.name == 'ai'
 
     permissions:
@@ -28,20 +27,16 @@ jobs:
           echo "Issue #${{ github.event.issue.number }} labeled with 'ai'"
           echo "Title: ${{ github.event.issue.title }}"
 
-      - name: Assign Copilot agent via PAT
-        uses: actions/github-script@v7
-        with:
-          # GITHUB_TOKEN cannot assign AI agents — use a fine-grained PAT
-          # from a user with an active Copilot Pro+ license.
-          # Setup: repo → Settings → Secrets → Actions → GH_AGENT_PAT
-          github-token: ${{ secrets.GH_AGENT_PAT }}
-          script: |
-            await github.rest.issues.addAssignees({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              assignees: ['copilot']
-            });
+      - name: Assign copilot-swe-agent via REST API
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_PAT }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/assignees \
+            -f 'assignees[]=copilot-swe-agent[bot]'
 
       - name: Post confirmation comment
         uses: actions/github-script@v7
