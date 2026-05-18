@@ -71,3 +71,27 @@ jobs:
             --collect:"XPlat Code Coverage" \
             --results-directory ./coverage
         continue-on-error: true  # change to false to enforce coverage gate
+
+  mark-ready:
+    name: Mark PR Ready for Review
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    # Only runs on PRs (not on push to main), and only if the PR is still a draft
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
+ 
+    permissions:
+      pull-requests: write
+ 
+    steps:
+      - name: Convert draft PR to ready for review
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              draft: false
+            });
+            console.log(`PR #${context.payload.pull_request.number} marked as ready for review`);
