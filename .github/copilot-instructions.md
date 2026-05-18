@@ -109,14 +109,24 @@ See `.github/skills/git-workflow.md` for full conventions.
 
 ---
 
+## Skill Usage
+
+- For implementation patterns (endpoints, handlers, Result<T>, domain, EF mappings), consult `.github/skills/backend.md` before coding.
+- For test strategy and conventions (unit/integration coverage, naming, fixtures), consult `.github/skills/testing.md` when adding or changing tests.
+- For branching, commit messages, and PR workflow, consult `.github/skills/git-workflow.md` before Git operations.
+
+---
+
 ## When Implementing a New Feature
 
 1. Read the issue carefully. If requirements are ambiguous, note assumptions in the PR description.
-2. Create branch from `main` following naming convention.
-3. Implement in this order: Domain → Infrastructure → Feature handler → Endpoint → Tests.
-4. Run `dotnet build` and `dotnet test` locally before opening PR.
-5. Open PR with the template in `.github/pull_request_template.md`.
-6. Do NOT merge — a human engineer will review and approve.
+2. Consult `.github/skills/backend.md` for implementation patterns and constraints.
+3. Create branch from `main` following `.github/skills/git-workflow.md` naming rules.
+4. Implement in this order: Domain → Infrastructure → Feature handler → Endpoint → Tests.
+5. Consult `.github/skills/testing.md` and add/adjust tests for the feature.
+6. Run `dotnet build` and `dotnet test` locally before opening PR.
+7. Open PR with the template in `.github/pull_request_template.md`.
+8. Do NOT merge — a human engineer will review and approve.
 
 ---
 
