@@ -22,5 +22,6 @@ public class SystemEndpointsTests(TasksApiFactory factory) : IClassFixture<Tasks
         body.Should().NotBeNull();
         body!.Service.Should().Be("Tasks API");
         body.Status.Should().Be("Healthy");
+        body.Version.Should().Be("0.1.0");
     }
 }
