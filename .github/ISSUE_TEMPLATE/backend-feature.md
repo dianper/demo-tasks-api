@@ -1,6 +1,6 @@
 ---
 name: "Backend Feature (AI)"
-description: "Request a new backend feature to be implemented by the AI agent"
+about: "Request a new backend feature to be implemented by the AI agent"
 title: "[Feature]: "
 labels: ["ai", "backend", "feature"]
 assignees: []

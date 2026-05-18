@@ -1,6 +1,6 @@
 ---
 name: "Backend Bug Fix (AI)"
-description: "Report a bug to be fixed by the AI agent"
+about: "Report a bug to be fixed by the AI agent"
 title: "[Bug]: "
 labels: ["ai", "backend", "bug"]
 assignees: []
