@@ -13,6 +13,9 @@ jobs:
   build-and-test:
     name: Build & Test (.NET 10)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
 
     # Testcontainers needs Docker — ubuntu-latest has it by default
     services: {}
